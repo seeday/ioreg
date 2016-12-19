@@ -20,161 +20,159 @@ use syntax::ast;
 use syntax::ptr::P;
 use syntax::codemap::{respan, Span, Spanned};
 use syntax::ext::build::AstBuilder;
-use syntax::parse::token;
+use syntax::ast::Name;
 
 use super::super::node;
 
 /// Generate an unsuffixed integer literal expression with a dummy span
 pub fn expr_int(cx: &ExtCtxt, n: Spanned<u64>) -> P<ast::Expr> {
-  cx.expr_lit(n.span, ast::LitKind::Int(n.node, ast::LitIntType::Unsuffixed))
+    cx.expr_lit(n.span,
+                ast::LitKind::Int(n.node, ast::LitIntType::Unsuffixed))
 }
 
 /// The name of the structure representing a register
-pub fn path_ident(cx: &ExtCtxt, path: &Vec<String>)
-                      -> ast::Ident {
-  cx.ident_of(path.clone().join("_").as_str())
+pub fn path_ident(cx: &ExtCtxt, path: &Vec<String>) -> ast::Ident {
+    cx.ident_of(path.clone().join("_").as_str())
 }
 
 
 /// Generate a `#[name(...)]` attribute of the given type
-pub fn list_attribute(cx: &ExtCtxt, name: &'static str,
+pub fn list_attribute(cx: &ExtCtxt,
+                      name: &'static str,
                       list: Vec<&'static str>,
-                      span: Span) -> ast::Attribute {
-  let spanned_name = respan(span, name);
-  let spanned_list: Vec<Spanned<&'static str>> = list.into_iter()
-    .map(|word| respan(span, word))
-    .collect();
-  list_attribute_spanned(cx, spanned_name, spanned_list)
+                      span: Span)
+                      -> ast::Attribute {
+    let spanned_name = respan(span, name);
+    let spanned_list: Vec<Spanned<&'static str>> = list.into_iter()
+        .map(|word| respan(span, word))
+        .collect();
+    list_attribute_spanned(cx, spanned_name, spanned_list)
 }
 
-fn list_attribute_spanned(cx: &ExtCtxt, name: Spanned<&'static str>,
-    list: Vec<Spanned<&'static str>>) -> ast::Attribute {
-  let words =
-   list.into_iter()
-   .map(|word| cx.meta_list_item_word(word.span, token::InternedString::new(word.node)));
-  let allow = cx.meta_list(name.span, token::InternedString::new(name.node),
-                                FromIterator::from_iter(words));
-  cx.attribute(name.span, allow)
+fn list_attribute_spanned(cx: &ExtCtxt,
+                          name: Spanned<&'static str>,
+                          list: Vec<Spanned<&'static str>>)
+                          -> ast::Attribute {
+    let words = list.into_iter()
+        .map(|word| cx.meta_list_item_word(word.span, Name::intern(word.node)));
+    let allow = cx.meta_list(name.span,
+                             Name::intern(name.node),
+                             FromIterator::from_iter(words));
+    cx.attribute(name.span, allow)
 }
 
 /// Generate a `#[doc="..."]` attribute of the given type
-pub fn doc_attribute(cx: &ExtCtxt, docstring: token::InternedString)
-                     -> ast::Attribute {
-  use syntax::codemap::DUMMY_SP;
+pub fn doc_attribute(cx: &ExtCtxt, docstring: Name) -> ast::Attribute {
+    use syntax::codemap::DUMMY_SP;
 
-  let s: ast::LitKind = ast::LitKind::Str(docstring, ast::StrStyle::Cooked);
-  let attr =
-    cx.meta_name_value(DUMMY_SP, token::InternedString::new("doc"), s);
-  cx.attribute(DUMMY_SP, attr)
+    let s: ast::LitKind = ast::LitKind::Str(docstring, ast::StrStyle::Cooked);
+    let attr = cx.meta_name_value(DUMMY_SP, Name::intern("doc"), s);
+    cx.attribute(DUMMY_SP, attr)
 }
 
 pub fn primitive_type_name(width: node::RegWidth) -> &'static str {
-  match width {
-    node::RegWidth::Reg8  => "u8",
-    node::RegWidth::Reg16 => "u16",
-    node::RegWidth::Reg32 => "u32",
-  }
+    match width {
+        node::RegWidth::Reg8 => "u8",
+        node::RegWidth::Reg16 => "u16",
+        node::RegWidth::Reg32 => "u32",
+    }
 }
 
-pub fn primitive_type_path(cx: &ExtCtxt, width: &Spanned<node::RegWidth>)
-                           -> ast::Path {
-  let name = primitive_type_name(width.node);
-  cx.path_ident(width.span, cx.ident_of(name))
+pub fn primitive_type_path(cx: &ExtCtxt, width: &Spanned<node::RegWidth>) -> ast::Path {
+    let name = primitive_type_name(width.node);
+    cx.path_ident(width.span, cx.ident_of(name))
 }
 
 /// The `Path` to the type corresponding to the primitive type of
 /// the given register
-pub fn reg_primitive_type_path(cx: &ExtCtxt, reg: &node::Reg)
-                               -> Option<ast::Path> {
-  match reg.ty {
-    node::RegType::RegPrim(ref width, _) => Some(primitive_type_path(cx, width)),
-    _ => None,
-  }
+pub fn reg_primitive_type_path(cx: &ExtCtxt, reg: &node::Reg) -> Option<ast::Path> {
+    match reg.ty {
+        node::RegType::RegPrim(ref width, _) => Some(primitive_type_path(cx, width)),
+        _ => None,
+    }
 }
 
 pub fn reg_primitive_type_name(reg: &node::Reg) -> Option<&'static str> {
-  match reg.ty {
-    node::RegType::RegPrim(ref width, _) => Some(primitive_type_name(width.node)),
-    _ => None,
-  }
+    match reg.ty {
+        node::RegType::RegPrim(ref width, _) => Some(primitive_type_name(width.node)),
+        _ => None,
+    }
 }
 
-pub fn reg_primitive_type(cx: &ExtCtxt, reg: &node::Reg)
-                          -> Option<P<ast::Ty>> {
-  let path = reg_primitive_type_path(cx, reg);
-  path.map(|p| cx.ty_path(p))
+pub fn reg_primitive_type(cx: &ExtCtxt, reg: &node::Reg) -> Option<P<ast::Ty>> {
+    let path = reg_primitive_type_path(cx, reg);
+    path.map(|p| cx.ty_path(p))
 }
 
-pub fn field_type_path(cx: &ExtCtxt, path: &Vec<String>,
-    reg: &node::Reg, field: &node::Field) -> ast::Path {
-  let span = field.ty.span;
-  match field.ty.node {
-    node::FieldType::UIntField => {
-      match reg.ty {
-        node::RegType::RegPrim(ref width, _) => primitive_type_path(cx,
-                                                                    width),
-        _  => panic!("The impossible happened: a union register with fields"),
-      }
-    },
-    node::FieldType::BoolField => cx.path_ident(span, cx.ident_of("bool")),
-    node::FieldType::EnumField { ref opt_name, ..} => {
-      match opt_name {
-        &Some(ref name) =>
-          cx.path_ident(span, cx.ident_of(name.as_str())),
-        &None => {
-          let mut name = path.clone();
-          name.push(field.name.node.clone());
-          cx.path_ident(span, cx.ident_of(name.join("_").as_str()))
+pub fn field_type_path(cx: &ExtCtxt,
+                       path: &Vec<String>,
+                       reg: &node::Reg,
+                       field: &node::Field)
+                       -> ast::Path {
+    let span = field.ty.span;
+    match field.ty.node {
+        node::FieldType::UIntField => {
+            match reg.ty {
+                node::RegType::RegPrim(ref width, _) => primitive_type_path(cx, width),
+                _ => panic!("The impossible happened: a union register with fields"),
+            }
         }
-      }
-    },
-  }
+        node::FieldType::BoolField => cx.path_ident(span, cx.ident_of("bool")),
+        node::FieldType::EnumField { ref opt_name, .. } => {
+            match opt_name {
+                &Some(ref name) => cx.path_ident(span, cx.ident_of(name.as_str())),
+                &None => {
+                    let mut name = path.clone();
+                    name.push(field.name.node.clone());
+                    cx.path_ident(span, cx.ident_of(name.join("_").as_str()))
+                }
+            }
+        }
+    }
 }
 
 pub fn unwrap_impl_item(item: P<ast::Item>) -> P<ast::ImplItem> {
-  match item.node {
-    ast::ItemKind::Impl(_, _, _, _, _, ref items) => {
-      P(items.clone().pop().expect("ImplItem not found"))
-    },
-    _ => panic!("Tried to unwrap ImplItem from Non-Impl")
-  }
+    match item.node {
+        ast::ItemKind::Impl(_, _, _, _, _, ref items) => {
+            P(items.clone().pop().expect("ImplItem not found"))
+        }
+        _ => panic!("Tried to unwrap ImplItem from Non-Impl"),
+    }
 }
 
 /// Build an expression for the mask of a field
 pub fn mask(cx: &ExtCtxt, field: &node::Field) -> P<ast::Expr> {
-  expr_int(cx, respan(field.bit_range_span,
-                      ((1 << field.width as u64) - 1)))
+    expr_int(cx,
+             respan(field.bit_range_span, ((1 << field.width as u64) - 1)))
 }
 
 /// Build an expression for the shift of a field (including the array
 /// index if necessary)
-pub fn shift(cx: &ExtCtxt, idx: Option<P<ast::Expr>>,
-                 field: &node::Field) -> P<ast::Expr> {
-  let low = expr_int(cx, respan(field.bit_range_span, field.low_bit as u64));
-  match idx {
-    Some(idx) => {
-      let width = expr_int(cx, respan(field.bit_range_span,
-                                      field.width as u64));
-      quote_expr!(cx, $low + $idx * $width)
-    },
-    None => low,
-  }
+pub fn shift(cx: &ExtCtxt, idx: Option<P<ast::Expr>>, field: &node::Field) -> P<ast::Expr> {
+    let low = expr_int(cx, respan(field.bit_range_span, field.low_bit as u64));
+    match idx {
+        Some(idx) => {
+            let width = expr_int(cx, respan(field.bit_range_span, field.width as u64));
+            quote_expr!(cx, $low + $idx * $width)
+        }
+        None => low,
+    }
 }
 
 /// The name of the setter type for a register
 pub fn setter_name(cx: &ExtCtxt, path: &Vec<String>) -> ast::Ident {
-  let mut s = path.clone();
-  s.push("Update".to_string());
-  path_ident(cx, &s)
+    let mut s = path.clone();
+    s.push("Update".to_string());
+    path_ident(cx, &s)
 }
 
 /// The name of the getter type for a register
 pub fn getter_name(cx: &ExtCtxt, path: &Vec<String>) -> ast::Ident {
-  let mut s = path.clone();
-  s.push("Get".to_string());
-  path_ident(cx, &s)
+    let mut s = path.clone();
+    s.push("Get".to_string());
+    path_ident(cx, &s)
 }
 
-pub fn intern_string(cx: &ExtCtxt, s: String) -> token::InternedString {
-  cx.ident_of(s.as_str()).name.as_str()
+pub fn intern_string(cx: &ExtCtxt, s: String) -> Name {
+    Name::intern(&s)
 }
