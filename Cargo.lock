@@ -1,0 +1,11 @@
+[root]
+name = "ioreg"
+version = "0.1.0"
+dependencies = [
+ "volatile_cell 1.0.0",
+]
+
+[[package]]
+name = "volatile_cell"
+version = "1.0.0"
+
